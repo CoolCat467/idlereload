@@ -317,21 +317,23 @@ class idlereload:  # noqa: N801
             return init_return
         if filename is None:
             return "break"
-        if not self.files.get_saved():
-            if self.ask_save_dialog():
-                # clear to save
-                self.files.save(None)
-                return "break"
+        if not self.files.get_saved() and self.ask_save_dialog():
+            # clear to save
+            self.files.save(None)
+            return "break"
         # Otherwise, read from disk
 
         # Remember where we started
         start_line_no: int = self.editwin.getlineno()
 
         # Reload file contents
-        if os.path.exists(filename) and not os.path.isdir(filename):
-            if self.files.loadfile(filename):
-                is_py_src = self.editwin.ispythonsource(filename)
-                self.editwin.set_indentation_params(is_py_src)
+        if (
+            os.path.exists(filename)
+            and not os.path.isdir(filename)
+            and self.files.loadfile(filename)
+        ):
+            is_py_src = self.editwin.ispythonsource(filename)
+            self.editwin.set_indentation_params(is_py_src)
         self.editwin.gotoline(start_line_no)
 
         self.text.bell()
