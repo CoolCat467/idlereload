@@ -12,9 +12,11 @@ __ver_major__ = 0
 __ver_minor__ = 0
 __ver_patch__ = 0
 
+import difflib
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from functools import partial, wraps
 from idlelib.config import idleConf
 from idlelib.format import FormatRegion
@@ -145,6 +147,16 @@ def ensure_values_exist_in_section(
             idleConf.SetOption("extensions", section, key, default)
             need_save = True
     return need_save
+
+
+@contextmanager
+def undo_block(undo: UndoDelegator) -> Generator[None, None, None]:
+    """Undo block context manager."""
+    undo.undo_block_start()
+    try:
+        yield None
+    finally:
+        undo.undo_block_stop()
 
 
 # Important weird: If event handler function returns 'break',
@@ -323,18 +335,48 @@ class idlereload:  # noqa: N801
             return "break"
         # Otherwise, read from disk
 
-        # Remember where we started
-        start_line_no: int = self.editwin.getlineno()
+        ##        # Remember where we started
+        ##        start_line_no: int = self.editwin.getlineno()
 
-        # Reload file contents
-        if (
-            os.path.exists(filename)
-            and not os.path.isdir(filename)
-            and self.files.loadfile(filename)
-        ):
-            is_py_src = self.editwin.ispythonsource(filename)
-            self.editwin.set_indentation_params(is_py_src)
-        self.editwin.gotoline(start_line_no)
+        if not os.path.exists(filename) or os.path.isdir(filename):
+            self.text.bell()
+            return "break"
+
+        ##        # Reload file contents
+        ##        if self.files.loadfile(filename):
+        ##            is_py_src = self.editwin.ispythonsource(filename)
+        ##            self.editwin.set_indentation_params(is_py_src)
+        ##        self.editwin.gotoline(start_line_no)
+
+        source_text = self.text.get("1.0", "end-1c").splitlines()
+        with open(filename, encoding=self.files.fileencoding) as disk:
+            new_text = disk.read().splitlines()
+        ##        delta = difflib.ndiff(source_text, new_text)
+        ##        print(f'{list(delta) = }')
+        matcher = difflib.SequenceMatcher(None, source_text, new_text)
+        with undo_block(self.undo):
+            ##            line = 0
+            for tag, a_low, a_high, b_low, b_high in matcher.get_opcodes():
+                ##                line += 1
+                print(f"{tag:6} a[{a_low}:{a_high}] b[{b_low}:{b_high}]")
+                print(
+                    f"> {source_text[a_low:a_high]} {new_text[b_low:b_high]}",
+                )
+                if tag == "replace":
+                    self.text.delete(f"{a_low}.0", f"{a_high}.0")
+                    self.text.insert(f"{b_low}.0", new_text[b_low:b_high], ())
+                ##                    g = matcher._fancy_replace(a, a_low, a_high, b, b_low, b_high)
+                elif tag == "delete":
+                    self.text.delete(f"{a_low}.0", f"{a_high}.0")
+                ##                    g = matcher._dump('-', a, a_low, a_high)
+                elif tag == "insert":
+                    self.text.insert(f"{b_low}.0", new_text[b_low:b_high], ())
+                ##                    g = matcher._dump('+', b, b_low, b_high)
+                elif tag == "equal":
+                    continue
+                ##                    g = matcher._dump(' ', a, a_low, a_high)
+                else:
+                    raise ValueError(f"Unknown tag {tag!r}")
 
         self.text.bell()
         return "break"
