@@ -1,5 +1,5 @@
 # IdleReload
-Python IDLE extension to reload the currently opened file from disk contents
+Python IDLE extension to reload the currently opened file from disk contents.
 
 [![Tests](https://github.com/CoolCat467/idlereload/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/CoolCat467/idlereload/actions/workflows/tests.yml)
 <!-- BADGIE TIME -->
@@ -19,21 +19,42 @@ extension allows you to reload the file's contents from what is saved
 on disk without restarting IDLE.
 
 ## Installation (Without root permissions)
-1) Go to terminal and install with `pip install idlereload[user]`.
-2) Run command `idleuserextend; idlereload`. You should see the following
-output: `Config should be good! Config should be good!`.
+1) Go to terminal and install with the following command:
+```console
+pip install idlereload[user]
+```
+
+2) Run configuration update/check commands:
+```console
+idleuserextend; idlereload
+```
+
+You should see the following output:
+`Config should be good! Config should be good!`.
+
 3) Open IDLE, go to `Options` -> `Configure IDLE` -> `Extensions`.
 If everything went well, alongside `ZzDummy` there should be and
 option called `idlereload`. This is where you can configure how
 idlereload works.
 
 ## Installation (Legacy, needs root permission)
-1) Go to terminal and install with `pip install idlereload`.
-2) Run command `idlereload`. You will likely see a message saying
+1) Go to terminal and install with the following command:
+```console
+pip install idlereload
+```
+
+2) Run configuration update/check commands:
+```console
+idlereload
+```
+
+You will likely see a message saying
 `idlereload not in system registered extensions!`. Run the command
-given to add idlereload to your system's IDLE extension config file.
-3) Again run command `idlereload`. This time, you should see the
-following output: `Config should be good!`.
+it tells you to add idlereload to your system's IDLE extension config file.
+
+3) Run command `idlereload` again after modifying the system extension
+configuration file. This time, you should see the following output:
+`Config should be good!`.
 4) Open IDLE, go to `Options` -> `Configure IDLE` -> `Extensions`.
 If everything went well, alongside `ZzDummy` there should be and
 option called `idlereload`. This is where you can configure how
