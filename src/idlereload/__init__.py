@@ -333,50 +333,81 @@ class idlereload:  # noqa: N801
             # clear to save
             self.files.save(None)
             return "break"
+
         # Otherwise, read from disk
-
-        ##        # Remember where we started
-        ##        start_line_no: int = self.editwin.getlineno()
-
+        # Ensure file exists
         if not os.path.exists(filename) or os.path.isdir(filename):
             self.text.bell()
             return "break"
 
-        ##        # Reload file contents
-        ##        if self.files.loadfile(filename):
-        ##            is_py_src = self.editwin.ispythonsource(filename)
-        ##            self.editwin.set_indentation_params(is_py_src)
-        ##        self.editwin.gotoline(start_line_no)
+        # Remember where we started
+        start_line_no: int = self.editwin.getlineno()
 
+        self.files.set_saved(False)
+
+        ### Reload file contents
+        ##if self.files.loadfile(filename):
+        ##    is_py_src = self.editwin.ispythonsource(filename)
+        ##    self.editwin.set_indentation_params(is_py_src)
+        ##self.editwin.gotoline(start_line_no)
+
+        # Get original and new text
         source_text = self.text.get("1.0", "end-1c").splitlines()
         with open(filename, encoding=self.files.fileencoding) as disk:
             new_text = disk.read().splitlines()
-        ##        delta = difflib.ndiff(source_text, new_text)
-        ##        print(f'{list(delta) = }')
+
+        # debug('\nNew segment start:')
         matcher = difflib.SequenceMatcher(None, source_text, new_text)
+
+        # Edit current text into new version
         with undo_block(self.undo):
-            ##            line = 0
+            line_offset = 1
+            start_offset = 0
+            # For each delta operation
             for tag, a_low, a_high, b_low, b_high in matcher.get_opcodes():
-                ##                line += 1
-                print(f"{tag:6} a[{a_low}:{a_high}] b[{b_low}:{b_high}]")
-                print(
-                    f"> {source_text[a_low:a_high]} {new_text[b_low:b_high]}",
-                )
+                # debug(f"{tag:8} a[{a_low}:{a_high}] b[{b_low}:{b_high}]")
+                source_data = "\n".join(source_text[a_low:a_high]) + "\n"
+                final_data = "\n".join(new_text[b_low:b_high]) + "\n"
+                # debug(f"> {source_data!r} {final_data!r}")
+
                 if tag == "replace":
-                    self.text.delete(f"{a_low}.0", f"{a_high}.0")
-                    self.text.insert(f"{b_low}.0", new_text[b_low:b_high], ())
-                ##                    g = matcher._fancy_replace(a, a_low, a_high, b, b_low, b_high)
+                    self.text.delete(
+                        f"{a_low+line_offset}.0",
+                        f"{a_high+line_offset}.0",
+                    )
+                    self.text.insert(f"{a_low+line_offset}.0", final_data, ())
+                    line_offset += (b_high - b_low) - (a_high - a_low)
+                    if a_low < start_line_no:
+                        start_offset += (b_high - b_low) - (a_high - a_low)
                 elif tag == "delete":
-                    self.text.delete(f"{a_low}.0", f"{a_high}.0")
-                ##                    g = matcher._dump('-', a, a_low, a_high)
+                    get = self.text.get(
+                        f"{a_low+line_offset}.0",
+                        f"{a_high+line_offset}.0",
+                    )
+                    assert get == source_data, f"{get!r} != {source_data!r}"
+                    self.text.delete(
+                        f"{a_low+line_offset}.0",
+                        f"{a_high+line_offset}.0",
+                    )
+                    line_offset -= a_high - a_low
+                    if a_low < start_line_no:
+                        start_offset -= a_high - a_low
                 elif tag == "insert":
-                    self.text.insert(f"{b_low}.0", new_text[b_low:b_high], ())
-                ##                    g = matcher._dump('+', b, b_low, b_high)
+                    self.text.insert(f"{a_low+line_offset}.0", final_data, ())
+                    line_offset += b_high - b_low
+                    if a_low < start_line_no:
+                        start_offset += b_high - b_low
                 elif tag == "equal":
+                    get = self.text.get(
+                        f"{a_low+line_offset}.0",
+                        f"{a_high+line_offset}.0",
+                    )
+                    assert get == source_data, f"{get!r} != {source_data!r}"
                     continue
-                ##                    g = matcher._dump(' ', a, a_low, a_high)
                 else:
                     raise ValueError(f"Unknown tag {tag!r}")
+            self.files.set_saved(True)
+        self.editwin.gotoline(start_line_no + start_offset)
 
         self.text.bell()
         return "break"
