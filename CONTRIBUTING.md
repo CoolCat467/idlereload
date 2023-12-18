@@ -4,9 +4,9 @@ Thank you so much for your interest in contributing! All types of contributions 
 
 There are many ways to contribute, no contribution is too small, and all contributions are valued. For example, you could:
 
-- Use idlemypyextension in a project, and give us feedback on what worked and what
+- Use idlereload in a project, and give us feedback on what worked and what
   didn't.
-- Write a blog post about your experiences with idlemypyextension, good or bad.
+- Write a blog post about your experiences with idlereload, good or bad.
 - Improve documentation.
 - Comment on issues.
 - Add tests.
@@ -25,7 +25,7 @@ If you're new to open source in general, you might find it useful to
 check out [opensource.guide's How to Contribute to Open Source tutorial](https://opensource.guide/how-to-contribute/), or if
 video's more your thing, [egghead.io has a short free video course](https://egghead.io/courses/how-to-contribute-to-an-open-source-project-on-github>).
 
-idlemypyextension is developed on GitHub. Code
+idlereload is developed on GitHub. Code
 and documentation changes are made through pull requests (see
 `Preparing Pull Requests` below).
 
@@ -33,7 +33,7 @@ and documentation changes are made through pull requests (see
 Providing support
 -----------------
 
-When helping others use idlemypyextension, please remember that you are
+When helping others use idlereload, please remember that you are
 representing our community, and we want this to be a friendly and
 welcoming place.
 
@@ -41,7 +41,7 @@ Please remember that the authors and users of competing projects are
 smart, thoughtful people doing their best to balance complicated and
 conflicting requirements, just like us. Of course it's totally fine to
 make specific technical critiques ("In project X, this is handled by
-doing Y, idlemypyextension does Z instead, which I prefer because...") or talk
+doing Y, idlereload does Z instead, which I prefer because...") or talk
 about your personal experience ("I tried using X but I got super
 frustrated and confused"), but refrain from generic statements like "X
 sucks" or "I can't believe anyone uses X".
