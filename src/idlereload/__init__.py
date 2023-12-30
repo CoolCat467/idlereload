@@ -1,23 +1,35 @@
-"""Reload File IDLE Extension."""
+"""IdleReload - Reload File Contents IDLE Extension."""
 
 # Programmed by CoolCat467
 
 from __future__ import annotations
 
+# IdleReload - Reload File Contents IDLE Extension.
+# Copyright (C) 2023  CoolCat467
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 __title__ = "idlereload"
 __author__ = "CoolCat467"
 __license__ = "GPLv3"
 __version__ = "0.0.0"
-__ver_major__ = 0
-__ver_minor__ = 0
-__ver_patch__ = 0
 
 import difflib
 import os
 import sys
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from contextlib import contextmanager
-from functools import partial, wraps
 from idlelib.config import idleConf
 from idlelib.format import FormatRegion
 from idlelib.iomenu import IOBinding
@@ -25,8 +37,6 @@ from idlelib.pyshell import PyShellEditorWindow, PyShellFileList
 from idlelib.undo import UndoDelegator
 from tkinter import Event, Text, Tk, messagebox
 from typing import Any, ClassVar
-
-from idlereload import tktrio
 
 
 def debug(message: str) -> None:
@@ -209,32 +219,32 @@ class idlereload:  # noqa: N801
         self.flist: PyShellFileList = editwin.flist
         self.files: IOBinding = editwin.io
 
-        self.triorun = tktrio.TkTrioRunner(
-            self.editwin.top,
-            self.editwin.close,
-        )
+        # self.triorun = tktrio.TkTrioRunner(
+        #     self.editwin.top,
+        #     self.editwin.close,
+        # )
+        #
+        # for attr_name in dir(self):
+        #     if attr_name.startswith("_"):
+        #         continue
+        #     if attr_name.endswith("_event_async"):
+        #         bind_name = "-".join(attr_name.split("_")[:-2]).lower()
+        #         self.text.bind(f"<<{bind_name}>>", self.get_async(attr_name))
+        #         # print(f'{attr_name} -> {bind_name}')
 
-        for attr_name in dir(self):
-            if attr_name.startswith("_"):
-                continue
-            if attr_name.endswith("_event_async"):
-                bind_name = "-".join(attr_name.split("_")[:-2]).lower()
-                self.text.bind(f"<<{bind_name}>>", self.get_async(attr_name))
-                # print(f'{attr_name} -> {bind_name}')
-
-    def get_async(
-        self,
-        name: str,
-    ) -> Callable[[Event[Any]], str]:
-        """Get sync callable to run async function."""
-        async_function = getattr(self, name)
-
-        @wraps(async_function)
-        def call_trio(event: Event[Any]) -> str:
-            self.triorun(partial(async_function, event))
-            return "break"
-
-        return call_trio
+    # def get_async(
+    #     self,
+    #     name: str,
+    # ) -> Callable[[Event[Any]], str]:
+    #     """Get sync callable to run async function."""
+    #     async_function = getattr(self, name)
+    #
+    #     @wraps(async_function)
+    #     def call_trio(event: Event[Any]) -> str:
+    #         self.triorun(partial(async_function, event))
+    #         return "break"
+    #
+    #     return call_trio
 
     def __repr__(self) -> str:
         """Return representation of self."""
@@ -345,11 +355,11 @@ class idlereload:  # noqa: N801
 
         self.files.set_saved(False)
 
-        ### Reload file contents
-        ##if self.files.loadfile(filename):
-        ##    is_py_src = self.editwin.ispythonsource(filename)
-        ##    self.editwin.set_indentation_params(is_py_src)
-        ##self.editwin.gotoline(start_line_no)
+        # # Reload file contents
+        # if self.files.loadfile(filename):
+        #     is_py_src = self.editwin.ispythonsource(filename)
+        #     self.editwin.set_indentation_params(is_py_src)
+        # self.editwin.gotoline(start_line_no)
 
         # Get original and new text
         source_text = self.text.get("1.0", "end-1c").splitlines()

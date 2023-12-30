@@ -59,3 +59,8 @@ configuration file. This time, you should see the following output:
 If everything went well, alongside `ZzDummy` there should be and
 option called `idlereload`. This is where you can configure how
 idlereload works.
+
+
+### Future Work
+Maybe add support for asynchronously checking if we need to reload and
+display a header message like code context that disk version has changed.
