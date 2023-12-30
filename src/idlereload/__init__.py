@@ -28,15 +28,17 @@ __version__ = "0.0.0"
 import difflib
 import os
 import sys
-from collections.abc import Generator
 from contextlib import contextmanager
 from idlelib.config import idleConf
 from idlelib.format import FormatRegion
 from idlelib.iomenu import IOBinding
 from idlelib.pyshell import PyShellEditorWindow, PyShellFileList
-from idlelib.undo import UndoDelegator
 from tkinter import Event, Text, Tk, messagebox
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from idlelib.undo import UndoDelegator
 
 
 def debug(message: str) -> None:
@@ -445,7 +447,7 @@ def get_fake_editwin(root_tk: Tk) -> PyShellEditorWindow:
             """Make bind do nothing."""
 
             def __init__(self) -> None:
-                """Requires no arguments."""
+                """No arguments."""
                 return
 
             bind = lambda x, y: None  # type: ignore[assignment]  # noqa

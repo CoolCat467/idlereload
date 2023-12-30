@@ -31,9 +31,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 keywords = ["idle", "extension", "development", "reload"]
-dependencies = [
-    "trio~=0.23.1",
-]
+dependencies = []
 
 [tool.setuptools.dynamic]
 version = {attr = "idlereload.__init__.__version__"}
@@ -50,12 +48,6 @@ idlereload = "idlereload:check_installed"
 
 [tool.setuptools.package-data]
 idlereload = ["py.typed"]
-
-[tool.pytest.ini_options]
-addopts = "--cov-report term-missing --cov=idlereload"
-testpaths = [
-    "tests",
-]
 
 [tool.mypy]
 mypy_path = "src"
@@ -77,10 +69,6 @@ warn_unreachable = true
 warn_unused_configs = true
 warn_unused_ignores = true
 
-[tool.black]
-line-length = 79
-target-version = ['py311']
-
 [tool.ruff.isort]
 combine-as-imports = true
 
@@ -88,30 +76,67 @@ combine-as-imports = true
 all = true
 disable_all_dunder_policy = true
 
-[tool.ruff.per-file-ignores]
-"tests/*" = ["D103"]
+[tool.black]
+line-length = 79
 
 [tool.ruff]
 line-length = 79
 fix = true
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]
-
-select = ['A', 'B', 'C4', 'COM', 'D', 'E', 'EXE', 'F', 'FA', 'I', 'N', 'PIE', 'PT', 'PYI', 'Q', 'RET', 'RUF', 'S', 'SIM', 'SLOT', 'UP', 'YTT']
-ignore = [
-    "D211",  # conflicts with docstrings
-    "D213",  # conflicts with docstrings
-##    "E203",  # conflicts with black
-    "E501",  # line-too-long
-    "S101",  # use of assert for tests and type narrowing
-##    "E402",  # module level import not at top of file
-    "D203",  # One blank line before class
-    "D401",  # Imparative mood docstrings
-    "D417",  # Bugged "Missing argument descriptions in the docstring"
+select = [
+    "A",     # flake8-builtins
+    "ASYNC", # flake8-async
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "COM",   # flake8-commas
+    "D",     # pydocstyle
+    "E",     # Error
+    "EXE",   # flake8-executable
+    "F",     # pyflakes
+    "FA",    # flake8-future-annotations
+    "I",     # isort
+    "N",     # pep8-naming
+    "PIE",   # flake8-pie
+    "PT",    # flake8-pytest-style
+    "PYI",   # flake8-pyi
+    "Q",     # flake8-quotes
+    "RET",   # flake8-return
+    "RUF",   # Ruff-specific rules
+    "S",     # flake8-bandit
+    "SIM",   # flake8-simplify
+    "SLOT",  # flake8-slots
+    "TCH",   # flake8-type-checking
+    "UP",    # pyupgrade
+    "W",     # Warning
+    "YTT",   # flake8-2020
+]
+extend-ignore = [
+    "E501",   # line-too-long
+    "S101",   # use of assert for tests and type narrowing
+    "D203",   # One blank line before class
+    "D204",   # blank line thing
+    "D211",   # no-blank-line-before-class
+    "D213",   # multi-line-summary-second-line
+    "SIM117", # Use multiple with statements at the same time
 ]
 
-fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
-unfixable = []#"D203"]
+[tool.ruff.per-file-ignores]
+"tests/*" = [
+    "D100",  # undocumented-public-module
+    "D103",  # undocumented-public-function
+    "D107",  # Missing docstring
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov-report term-missing --cov=idlereload"
+testpaths = [
+    "tests",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
 
 [tool.tox]
 legacy_tox_ini = """
@@ -133,7 +158,6 @@ legacy_tox_ini = """
     deps =
         pytest
         pytest-cov
-        pytest-trio
     commands = pytest --basetemp={envtmpdir}
 
     [testenv:mypy]
