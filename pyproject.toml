@@ -36,7 +36,7 @@ dependencies = []
 version = {attr = "idlereload.__init__.__version__"}
 
 [project.optional-dependencies]
-user = ["idleuserextend~=0.0.0"]
+user = ["idleuserextend~=0.0.1"]
 
 [project.urls]
 "Source" = "https://github.com/CoolCat467/idlereload"
