@@ -23,21 +23,20 @@ from __future__ import annotations
 __title__ = "idlereload"
 __author__ = "CoolCat467"
 __license__ = "GPLv3"
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 import difflib
 import os
 import sys
 from contextlib import contextmanager
 from idlelib.config import idleConf
-from idlelib.format import FormatRegion
-from idlelib.iomenu import IOBinding
-from idlelib.pyshell import PyShellEditorWindow, PyShellFileList
-from tkinter import Event, Text, Tk, messagebox
+from tkinter import Event, Text, messagebox
 from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from idlelib.iomenu import IOBinding
+    from idlelib.pyshell import PyShellEditorWindow
     from idlelib.undo import UndoDelegator
 
 
@@ -177,16 +176,13 @@ def undo_block(undo: UndoDelegator) -> Generator[None, None, None]:
 
 
 class idlereload:  # noqa: N801
-    """Add comments from mypy to an open program."""
+    """Reload file contents without restarting IDLE."""
 
     __slots__ = (
         "editwin",
         "text",
         "undo",
-        "formatter",
         "files",
-        "flist",
-        "triorun",
     )
     # Extend the file and format menus.
     menudefs: ClassVar = [
@@ -209,16 +205,11 @@ class idlereload:  # noqa: N801
         "reload-file": "<Control-Shift-Key-R>",
     }
 
-    # Class attributes
-    idlerc_folder = os.path.expanduser(idleConf.userdir)
-
     def __init__(self, editwin: PyShellEditorWindow) -> None:
         """Initialize the settings for this extension."""
         self.editwin: PyShellEditorWindow = editwin
         self.text: Text = editwin.text
         self.undo: UndoDelegator = editwin.undo
-        self.formatter: FormatRegion = editwin.fregion
-        self.flist: PyShellFileList = editwin.flist
         self.files: IOBinding = editwin.io
 
         # self.triorun = tktrio.TkTrioRunner(
@@ -431,38 +422,6 @@ class idlereload:  # noqa: N801
 idlereload.reload()
 
 
-def get_fake_editwin(root_tk: Tk) -> PyShellEditorWindow:
-    """Get fake edit window for testing."""
-    from idlelib.pyshell import PyShellEditorWindow
-
-    class FakeEditWindow(PyShellEditorWindow):  # type: ignore[misc,unused-ignore]
-        """FakeEditWindow for testing."""
-
-        def __init__(self) -> None:
-            return
-
-        from tkinter import Text
-
-        class _FakeText(Text):
-            """Make bind do nothing."""
-
-            def __init__(self) -> None:
-                """No arguments."""
-                return
-
-            bind = lambda x, y: None  # type: ignore[assignment]  # noqa
-            root = root_tk
-            close: Any = None
-
-        text = _FakeText()
-        fregion: Any = FormatRegion
-        flist: Any = PyShellFileList
-        io: Any = IOBinding
-
-    return FakeEditWindow()
-
-
 if __name__ == "__main__":
     print(f"{__title__} v{__version__}\nProgrammed by {__author__}.\n")
     check_installed()
-    # self = idlereload(get_fake_editwin())
