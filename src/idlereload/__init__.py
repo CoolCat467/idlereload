@@ -23,7 +23,7 @@ from __future__ import annotations
 __title__ = "idlereload"
 __author__ = "CoolCat467"
 __license__ = "GPLv3"
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 import difflib
 import os
