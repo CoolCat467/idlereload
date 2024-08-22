@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 # IdleReload - Reload File Contents IDLE Extension.
-# Copyright (C) 2023  CoolCat467
+# Copyright (C) 2023-2024  CoolCat467
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,11 +23,12 @@ from __future__ import annotations
 __title__ = "idlereload"
 __author__ = "CoolCat467"
 __license__ = "GPLv3"
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 import difflib
 import os
 import sys
+import traceback
 from contextlib import contextmanager
 from idlelib.config import idleConf
 from tkinter import Event, Text, messagebox
@@ -140,7 +141,7 @@ def ensure_section_exists(section: str) -> bool:
 
 def ensure_values_exist_in_section(
     section: str,
-    values: dict[str, str],
+    values: dict[str, str | None],
 ) -> bool:
     """For each key in values, make sure key exists. Return if edited.
 
@@ -148,6 +149,8 @@ def ensure_values_exist_in_section(
     """
     need_save = False
     for key, default in values.items():
+        if default is None:
+            continue
         value = idleConf.GetOption(
             "extensions",
             section,
@@ -168,6 +171,24 @@ def undo_block(undo: UndoDelegator) -> Generator[None, None, None]:
         yield None
     finally:
         undo.undo_block_stop()
+
+
+@contextmanager
+def temporary_overwrite(
+    object_: object,
+    attribute: str,
+    value: Any,
+) -> Generator[None, None, None]:
+    """Temporarily overwrite object_.attribute with value, restore on exit."""
+    if not hasattr(object_, attribute):
+        yield None
+    else:
+        original = getattr(object_, attribute)
+        setattr(object_, attribute, value)
+        try:
+            yield None
+        finally:
+            setattr(object_, attribute, original)
 
 
 # Important weird: If event handler function returns 'break',
@@ -191,6 +212,7 @@ class idlereload:  # noqa: N801
             [
                 None,
                 ("_Reload File", "<<reload-file>>"),
+                ("Reload _Extensions", "<<idlereload-reload-extensions>>"),
             ],
         ),
     ]
@@ -203,6 +225,7 @@ class idlereload:  # noqa: N801
     # Default key binds for configuration file
     bind_defaults: ClassVar = {
         "reload-file": "<Control-Shift-Key-R>",
+        "idlereload-reload-extensions": None,
     }
 
     def __init__(self, editwin: PyShellEditorWindow) -> None:
@@ -224,6 +247,18 @@ class idlereload:  # noqa: N801
         #         bind_name = "-".join(attr_name.split("_")[:-2]).lower()
         #         self.text.bind(f"<<{bind_name}>>", self.get_async(attr_name))
         #         # print(f'{attr_name} -> {bind_name}')
+        for bind_name, key in self.bind_defaults.items():
+            if key is not None:
+                continue
+            bind_func_name = "_".join(bind_name.split("-")) + "_event"
+            if not hasattr(self, bind_func_name):
+                debug(f"Missing function {bind_func_name}")
+                continue
+            bind_func = getattr(self, bind_func_name)
+            if not callable(bind_func):
+                debug(f"{bind_func_name} should be callable")
+                continue
+            self.text.bind(f"<<{bind_name}>>", bind_func)
 
     # def get_async(
     #     self,
@@ -325,7 +360,7 @@ class idlereload:  # noqa: N801
         return None, file
 
     def reload_file_event(self, event: Event[Any]) -> str:
-        """Perform a mypy check and add comments."""
+        """Reload currently open file."""
         init_return, filename = self.initial()
 
         if init_return is not None:
@@ -415,8 +450,86 @@ class idlereload:  # noqa: N801
         self.text.bell()
         return "break"
 
-    # def close(self) -> None:
-    #    """Called when any idle editor window closes"""
+    # def undo_fill_menu(self, menudefs, keydefs) -> None:
+    #     for mname, entrylist in menudefs:
+    #         if not entrylist:
+    #             continue
+    #         menu = self.editwin.menudict.get(mname)
+    #         if not menu:
+    #             continue
+    #         label: str | None = None
+    #         for entry_list_index, entry in enumerate(entrylist):
+    #             if entry is None:
+    #                 continue
+    #             label, _eventname = entry
+    #             underline, label = prepstr(label)
+    #             break
+    #         if label is None:
+    #             debug("Valid label not found.")
+    #             continue
+    #         start_index = menu.index(label) - entry_list_index
+    #         print(f'{menu.entryconfig(start_index) = }')
+    # ##            print(f'{menu.entrycget(start_index, "label") = }')
+    # ##            entry_count = len(entrylist)
+    # ##            menu.delete(start_index, entry_count)
+    #
+    # def undo_fill_menu(self) -> None:
+    #     for _menu_name, menu in self.editwin.menudict.items():
+    #         menu.delete(None)
+    #     self.editwin.fill_menus()
+
+    def unload_extensions(self) -> None:
+        """Unload extensions."""
+        self.editwin.mainmenu.default_keydefs = idleConf.GetCurrentKeySet()
+
+        for event, keylist in self.editwin.mainmenu.default_keydefs.items():
+            self.editwin.text.event_delete(event, *keylist)
+
+        for extension_name, extension in self.editwin.extensions.items():
+            ext_keydefs = idleConf.GetExtensionBindings(extension_name)
+            # undo fill_menus(cls.menudefs, keydefs)
+            # if hasattr(extension, "menudefs"):
+            #     self.undo_fill_menu(extension.menudefs, ext_keydefs)
+            for event, keylist in ext_keydefs.items():
+                self.editwin.text.event_delete(event, *keylist)
+
+            try:
+                if hasattr(extension, "close"):
+                    extension.close()
+            except Exception as exc:
+                traceback.format_exception(exc)
+            if extension_name in sys.modules:
+                to_remove = [extension_name]
+
+                submodule = f"{extension_name}."
+                for name in sys.modules:
+                    if name.startswith(submodule):
+                        to_remove.append(name)
+                for name in to_remove:
+                    del sys.modules[name]
+
+        self.editwin.extensions.clear()
+
+    def idlereload_reload_extensions_event(self, event: Event[Any]) -> str:
+        """Reload extensions."""
+        self.unload_extensions()
+
+        def noop(*args: Any, **kwargs: Any) -> None:
+            """Do nothing."""
+
+        with temporary_overwrite(self.editwin, "fill_menus", noop):
+            self.editwin.load_extensions()
+
+        self.text.bell()
+        return "break"
+
+    def close(self) -> None:
+        """IDLE calls this when any idle editor window closes."""
+        # Deregister custom bound events
+        for bind_name, key in self.bind_defaults.items():
+            if key is not None:
+                continue
+            self.editwin.text.event_delete(f"<<{bind_name}>>")
 
 
 idlereload.reload()
