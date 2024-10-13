@@ -28,17 +28,28 @@ __version__ = "0.0.4"
 import difflib
 import os
 import sys
+import time
 import traceback
 from contextlib import contextmanager
+from functools import wraps
 from idlelib.config import idleConf
+from pathlib import Path
 from tkinter import Event, Text, messagebox
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
     from idlelib.iomenu import IOBinding
     from idlelib.pyshell import PyShellEditorWindow
     from idlelib.undo import UndoDelegator
+
+    from typing_extensions import ParamSpec
+
+    PS = ParamSpec("PS")
+
+
+T = TypeVar("T")
+LOG_PATH = Path(idleConf.userdir) / "logs" / f"{__title__}.log"
 
 
 def debug(message: str) -> None:
@@ -189,6 +200,27 @@ def temporary_overwrite(
             yield None
         finally:
             setattr(object_, attribute, original)
+
+
+def log_exceptions(function: Callable[PS, T]) -> Callable[PS, T]:
+    """Log any exceptions raised."""
+
+    @wraps(function)
+    def wrapper(*args: PS.args, **kwargs: PS.kwargs) -> T:
+        """Catch Exceptions, log them to log file, and re-raise."""
+        try:
+            return function(*args, **kwargs)
+        except Exception as exc:
+            if not LOG_PATH.exists():
+                LOG_PATH.parent.mkdir(exist_ok=True)
+            with LOG_PATH.open("a", encoding="utf-8") as fp:
+                format_time = time.strftime("[%Y-%m-%d %H:%M:%S] ")
+                exception_text = "".join(traceback.format_exception(exc))
+                for line in exception_text.splitlines(keepends=True):
+                    fp.write(f"{format_time}{line}")
+            raise
+
+    return wrapper
 
 
 # Important weird: If event handler function returns 'break',
@@ -359,6 +391,7 @@ class idlereload:  # noqa: N801
         # Everything worked
         return None, file
 
+    @log_exceptions
     def reload_file_event(self, event: Event[Any]) -> str:
         """Reload currently open file."""
         init_return, filename = self.initial()
@@ -510,6 +543,7 @@ class idlereload:  # noqa: N801
 
         self.editwin.extensions.clear()
 
+    @log_exceptions
     def idlereload_reload_extensions_event(self, event: Event[Any]) -> str:
         """Reload extensions."""
         self.unload_extensions()
@@ -523,6 +557,7 @@ class idlereload:  # noqa: N801
         self.text.bell()
         return "break"
 
+    @log_exceptions
     def close(self) -> None:
         """IDLE calls this when any idle editor window closes."""
         # Deregister custom bound events
