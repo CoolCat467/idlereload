@@ -233,9 +233,9 @@ class idlereload:  # noqa: N801
 
     __slots__ = (
         "editwin",
+        "files",
         "text",
         "undo",
-        "files",
     )
     # Extend the file and format menus.
     menudefs: ClassVar = [
