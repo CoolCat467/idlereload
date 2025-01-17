@@ -26,6 +26,7 @@ __license__ = "GPLv3"
 __version__ = "0.0.4"
 
 import difflib
+import importlib
 import os
 import sys
 import time
@@ -34,7 +35,7 @@ from contextlib import contextmanager
 from functools import wraps
 from idlelib.config import idleConf
 from pathlib import Path
-from tkinter import Event, Text, messagebox
+from tkinter import Event, Misc, Text, messagebox
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
 if TYPE_CHECKING:
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
     from idlelib.iomenu import IOBinding
     from idlelib.pyshell import PyShellEditorWindow
     from idlelib.undo import UndoDelegator
+    from types import ModuleType
 
     from typing_extensions import ParamSpec
 
@@ -55,7 +57,9 @@ LOG_PATH = Path(idleConf.userdir) / "logs" / f"{__title__}.log"
 def debug(message: str) -> None:
     """Print debug message."""
     # TODO: Censor username/user files
-    print(f"\n[{__title__}] DEBUG: {message}")
+    line = f"[{__title__}] DEBUG: {message}"
+    print(f"\n{line}")
+    extension_log(line)
 
 
 def get_required_config(
@@ -188,7 +192,7 @@ def undo_block(undo: UndoDelegator) -> Generator[None, None, None]:
 def temporary_overwrite(
     object_: object,
     attribute: str,
-    value: Any,
+    value: object,
 ) -> Generator[None, None, None]:
     """Temporarily overwrite object_.attribute with value, restore on exit."""
     if not hasattr(object_, attribute):
@@ -202,6 +206,24 @@ def temporary_overwrite(
             setattr(object_, attribute, original)
 
 
+def extension_log(content: str) -> None:
+    """Log content to extension log."""
+    if not LOG_PATH.exists():
+        LOG_PATH.parent.mkdir(exist_ok=True)
+    with LOG_PATH.open("a", encoding="utf-8") as fp:
+        format_time = time.strftime("[%Y-%m-%d %H:%M:%S] ")
+        for line in content.splitlines(keepends=True):
+            fp.write(f"{format_time}{line}")
+        if not line.endswith("\n"):
+            fp.write("\n")
+
+
+def extension_log_exception(exc: BaseException) -> None:
+    """Log exception to extension log."""
+    exception_text = "".join(traceback.format_exception(exc))
+    extension_log(exception_text)
+
+
 def log_exceptions(function: Callable[PS, T]) -> Callable[PS, T]:
     """Log any exceptions raised."""
 
@@ -211,13 +233,7 @@ def log_exceptions(function: Callable[PS, T]) -> Callable[PS, T]:
         try:
             return function(*args, **kwargs)
         except Exception as exc:
-            if not LOG_PATH.exists():
-                LOG_PATH.parent.mkdir(exist_ok=True)
-            with LOG_PATH.open("a", encoding="utf-8") as fp:
-                format_time = time.strftime("[%Y-%m-%d %H:%M:%S] ")
-                exception_text = "".join(traceback.format_exception(exc))
-                for line in exception_text.splitlines(keepends=True):
-                    fp.write(f"{format_time}{line}")
+            extension_log_exception(exc)
             raise
 
     return wrapper
@@ -385,6 +401,7 @@ class idlereload:  # noqa: N801
         # Get file we are checking
         raw_filename: str | None = self.files.filename
         if raw_filename is None:
+            debug("Raw filename is None")
             return "break", None
         file: str = os.path.abspath(raw_filename)
 
@@ -392,22 +409,27 @@ class idlereload:  # noqa: N801
         return None, file
 
     @log_exceptions
-    def reload_file_event(self, event: Event[Any]) -> str:
+    def reload_file_event(self, event: Event[Misc]) -> str:
         """Reload currently open file."""
         init_return, filename = self.initial()
 
         if init_return is not None:
             return init_return
         if filename is None:
+            debug("Filename is None")
+            self.text.bell()
             return "break"
-        if not self.files.get_saved() and self.ask_save_dialog():
-            # clear to save
-            self.files.save(None)
-            return "break"
+        if not self.files.get_saved():
+            if self.ask_save_dialog():
+                # clear to save
+                self.files.save(None)
+            else:
+                return "break"
 
         # Otherwise, read from disk
         # Ensure file exists
         if not os.path.exists(filename) or os.path.isdir(filename):
+            debug("Filename does not exist or is a directory.")
             self.text.bell()
             return "break"
 
@@ -513,7 +535,7 @@ class idlereload:  # noqa: N801
 
     def unload_extensions(self) -> None:
         """Unload extensions."""
-        self.editwin.mainmenu.default_keydefs = idleConf.GetCurrentKeySet()
+        self.editwin.mainmenu.default_keydefs = idleConf.GetCurrentKeySet()  # type: ignore[attr-defined]
 
         for event, keylist in self.editwin.mainmenu.default_keydefs.items():
             self.editwin.text.event_delete(event, *keylist)
@@ -531,20 +553,22 @@ class idlereload:  # noqa: N801
                     extension.close()
             except Exception as exc:
                 traceback.format_exception(exc)
+                extension_log_exception(exc)
+
             if extension_name in sys.modules:
-                to_remove = [extension_name]
+                to_remove: list[ModuleType] = [sys.modules[extension_name]]
 
                 submodule = f"{extension_name}."
-                for name in sys.modules:
+                for name, module in sys.modules.items():
                     if name.startswith(submodule):
-                        to_remove.append(name)
-                for name in to_remove:
-                    del sys.modules[name]
+                        to_remove.append(module)
+                for module in to_remove:
+                    importlib.reload(module)
 
         self.editwin.extensions.clear()
 
     @log_exceptions
-    def idlereload_reload_extensions_event(self, event: Event[Any]) -> str:
+    def idlereload_reload_extensions_event(self, event: Event[Misc]) -> str:
         """Reload extensions."""
         self.unload_extensions()
 
