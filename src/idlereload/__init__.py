@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 # IdleReload - Reload File Contents IDLE Extension.
-# Copyright (C) 2023-2024  CoolCat467
+# Copyright (C) 2023-2025  CoolCat467
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ from __future__ import annotations
 __title__ = "idlereload"
 __author__ = "CoolCat467"
 __license__ = "GPLv3"
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 import difflib
 import importlib
