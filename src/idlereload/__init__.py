@@ -306,7 +306,7 @@ class idlereload:  # noqa: N801
             if not callable(bind_func):
                 debug(f"{bind_func_name} should be callable")
                 continue
-            self.text.bind(f"<<{bind_name}>>", bind_func)
+            # self.text.bind(f"<<{bind_name}>>", bind_func)
 
     # def get_async(
     #     self,
