@@ -61,8 +61,8 @@ def extended_linecache_checkcache(
 class PyShellEditorWindow(EditorWindow):
     breakpoints: list[int]
     breakpointPath: str
-    flist: PyShellFileList
-    root: Tk
+    flist: PyShellFileList  # type: ignore[mutable-override]
+    root: Tk  # type: ignore[mutable-override]
     def __init__(self, *args: PyShellFileList | Tk | str | None) -> None: ...
     rmenu_specs: list[tuple[str | None, str | None, str | None]]
     def color_breakpoint_text(self, color: bool = ...) -> None: ...
@@ -147,15 +147,17 @@ class ModifiedInterpreter(InteractiveInterpreter):
     def runsource(self, source: str) -> bool: ...  # type: ignore[override]
     def stuffsource(self, source: str) -> str: ...
     def prepend_syspath(self, filename: str) -> None: ...
-    def showsyntaxerror(self, filename: str | None = ...) -> None: ...
+    def showsyntaxerror(
+        self,
+        filename: str | None = ...,
+        **kwargs: str,
+    ) -> None: ...
     def showtraceback(self) -> None: ...
     def checklinecache(self) -> None: ...
     def runcommand(
         self,
         code: str,
-    ) -> (
-        bool
-    ): ...  # Actually returns int object but that is a hack because of int truthyness
+    ) -> bool: ...  # Actually returns int object but that is a hack because of int truthyness
     def runcode(self, code: CodeType) -> None: ...
     def write(self, s: str) -> int: ...  # type: ignore[override]
     def display_port_binding_error(self) -> None: ...
@@ -169,10 +171,10 @@ class PyShell(OutputWindow):
     menu_specs: list[tuple[str, str]]
     rmenu_specs: list[tuple[str, str]]  # type: ignore[assignment]
     allow_line_numbers: bool
-    user_input_insert_tags: str
+    user_input_insert_tags: str  # type: ignore[mutable-override]
     interp: ModifiedInterpreter
-    root: Tk
-    flist: PyShellFileList
+    root: Tk  # type: ignore[mutable-override]
+    flist: PyShellFileList  # type: ignore[mutable-override]
     shell_sidebar: ShellSidebar
     usetabs: bool
     indentwidth: int

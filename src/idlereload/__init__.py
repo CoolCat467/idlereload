@@ -429,7 +429,7 @@ class idlereload:  # noqa: N801
         # Otherwise, read from disk
         # Ensure file exists
         if not os.path.exists(filename) or os.path.isdir(filename):
-            debug("Filename does not exist or is a directory.")
+            debug(f"Filename {filename!r} does not exist or is a directory.")
             self.text.bell()
             return "break"
 
@@ -465,35 +465,43 @@ class idlereload:  # noqa: N801
 
                 if tag == "replace":
                     self.text.delete(
-                        f"{a_low+line_offset}.0",
-                        f"{a_high+line_offset}.0",
+                        f"{a_low + line_offset}.0",
+                        f"{a_high + line_offset}.0",
                     )
-                    self.text.insert(f"{a_low+line_offset}.0", final_data, ())
+                    self.text.insert(
+                        f"{a_low + line_offset}.0",
+                        final_data,
+                        (),
+                    )
                     line_offset += (b_high - b_low) - (a_high - a_low)
                     if a_low < start_line_no:
                         start_offset += (b_high - b_low) - (a_high - a_low)
                 elif tag == "delete":
                     get = self.text.get(
-                        f"{a_low+line_offset}.0",
-                        f"{a_high+line_offset}.0",
+                        f"{a_low + line_offset}.0",
+                        f"{a_high + line_offset}.0",
                     )
                     assert get == source_data, f"{get!r} != {source_data!r}"
                     self.text.delete(
-                        f"{a_low+line_offset}.0",
-                        f"{a_high+line_offset}.0",
+                        f"{a_low + line_offset}.0",
+                        f"{a_high + line_offset}.0",
                     )
                     line_offset -= a_high - a_low
                     if a_low < start_line_no:
                         start_offset -= a_high - a_low
                 elif tag == "insert":
-                    self.text.insert(f"{a_low+line_offset}.0", final_data, ())
+                    self.text.insert(
+                        f"{a_low + line_offset}.0",
+                        final_data,
+                        (),
+                    )
                     line_offset += b_high - b_low
                     if a_low < start_line_no:
                         start_offset += b_high - b_low
                 elif tag == "equal":
                     get = self.text.get(
-                        f"{a_low+line_offset}.0",
-                        f"{a_high+line_offset}.0",
+                        f"{a_low + line_offset}.0",
+                        f"{a_high + line_offset}.0",
                     )
                     assert get == source_data, f"{get!r} != {source_data!r}"
                     continue
