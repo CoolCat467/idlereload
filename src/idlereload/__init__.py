@@ -295,10 +295,13 @@ class idlereload:  # noqa: N801
         #         bind_name = "-".join(attr_name.split("_")[:-2]).lower()
         #         self.text.bind(f"<<{bind_name}>>", self.get_async(attr_name))
         #         # print(f'{attr_name} -> {bind_name}')
+
+        # Bind non-keyboard triggered events, as IDLE only binds
+        # keyboard events automatically.
         for bind_name, key in self.bind_defaults.items():
             if key is not None:
                 continue
-            bind_func_name = "_".join(bind_name.split("-")) + "_event"
+            bind_func_name = bind_name.replace("-", "_") + "_event"
             if not hasattr(self, bind_func_name):
                 debug(f"Missing function {bind_func_name}")
                 continue
@@ -306,7 +309,7 @@ class idlereload:  # noqa: N801
             if not callable(bind_func):
                 debug(f"{bind_func_name} should be callable")
                 continue
-            # self.text.bind(f"<<{bind_name}>>", bind_func)
+            self.text.bind(f"<<{bind_name}>>", bind_func)
 
     # def get_async(
     #     self,
@@ -543,24 +546,33 @@ class idlereload:  # noqa: N801
 
     def unload_extensions(self) -> None:
         """Unload extensions."""
-        self.editwin.mainmenu.default_keydefs = idleConf.GetCurrentKeySet()  # type: ignore[attr-defined]
-
-        for event, keylist in self.editwin.mainmenu.default_keydefs.items():
-            self.editwin.text.event_delete(event, *keylist)
-
         for extension_name, extension in self.editwin.extensions.items():
             ext_keydefs = idleConf.GetExtensionBindings(extension_name)
             # undo fill_menus(cls.menudefs, keydefs)
             # if hasattr(extension, "menudefs"):
             #     self.undo_fill_menu(extension.menudefs, ext_keydefs)
             for event, keylist in ext_keydefs.items():
-                self.editwin.text.event_delete(event, *keylist)
+                try:
+                    self.editwin.text.event_delete(event, *keylist)
+                except ValueError as exc:
+                    traceback.print_exception(exc)
+                try:
+                    self.editwin.text.event_delete(event)
+                except ValueError as exc:
+                    traceback.print_exception(exc)
 
             try:
                 if hasattr(extension, "close"):
                     extension.close()
             except Exception as exc:
-                traceback.format_exception(exc)
+                traceback.print_exception(exc)
+                extension_log_exception(exc)
+
+            try:
+                if hasattr(extension, "on_reloading"):
+                    extension.on_reloading()
+            except Exception as exc:
+                traceback.print_exception(exc)
                 extension_log_exception(exc)
 
             if extension_name in sys.modules:
@@ -578,6 +590,7 @@ class idlereload:  # noqa: N801
     @log_exceptions
     def idlereload_reload_extensions_event(self, event: Event[Misc]) -> str:
         """Reload extensions."""
+        print(f"[{__title__}]: Reloading extensions")
         self.unload_extensions()
 
         def noop(*args: Any, **kwargs: Any) -> None:
@@ -588,15 +601,6 @@ class idlereload:  # noqa: N801
 
         self.text.bell()
         return "break"
-
-    @log_exceptions
-    def close(self) -> None:
-        """IDLE calls this when any idle editor window closes."""
-        # Deregister custom bound events
-        for bind_name, key in self.bind_defaults.items():
-            if key is not None:
-                continue
-            self.editwin.text.event_delete(f"<<{bind_name}>>")
 
 
 idlereload.reload()
