@@ -22,7 +22,7 @@ from __future__ import annotations
 
 __title__ = "idlereload"
 __author__ = "CoolCat467"
-__license__ = "GPLv3"
+__license__ = "GNU General Public License Version 3"
 __version__ = "0.1.0"
 
 import difflib
@@ -36,6 +36,7 @@ from functools import wraps
 from idlelib.config import idleConf
 from pathlib import Path
 from tkinter import Event, Misc, Text, messagebox
+from tkinter.messagebox import askyesno
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
 if TYPE_CHECKING:
@@ -54,12 +55,13 @@ T = TypeVar("T")
 LOG_PATH = Path(idleConf.userdir) / "logs" / f"{__title__}.log"
 
 
-def debug(message: str) -> None:
+def debug(message: str, save_to_logfile: bool = True) -> None:
     """Print debug message."""
     # TODO: Censor username/user files
     line = f"[{__title__}] DEBUG: {message}"
     print(f"\n{line}")
-    extension_log(line)
+    if save_to_logfile:
+        extension_log(line)
 
 
 def get_required_config(
@@ -239,6 +241,14 @@ def log_exceptions(function: Callable[PS, T]) -> Callable[PS, T]:
     return wrapper
 
 
+def get_mtime(filename: str) -> float | None:
+    """Return mtime or None on OSError."""
+    try:
+        return os.path.getmtime(filename)
+    except OSError:
+        return None
+
+
 # Important weird: If event handler function returns 'break',
 # then it prevents other bindings of same event type from running.
 # If returns None, normal and others are also run.
@@ -248,8 +258,10 @@ class idlereload:  # noqa: N801
     """Reload file contents without restarting IDLE."""
 
     __slots__ = (
+        "direct_binds",
         "editwin",
         "files",
+        "last_mtime",
         "text",
         "undo",
     )
@@ -283,18 +295,11 @@ class idlereload:  # noqa: N801
         self.undo: UndoDelegator = editwin.undo
         self.files: IOBinding = editwin.io
 
-        # self.triorun = tktrio.TkTrioRunner(
-        #     self.editwin.top,
-        #     self.editwin.close,
-        # )
-        #
-        # for attr_name in dir(self):
-        #     if attr_name.startswith("_"):
-        #         continue
-        #     if attr_name.endswith("_event_async"):
-        #         bind_name = "-".join(attr_name.split("_")[:-2]).lower()
-        #         self.text.bind(f"<<{bind_name}>>", self.get_async(attr_name))
-        #         # print(f'{attr_name} -> {bind_name}')
+        self.last_mtime: float = -1.0
+        self.direct_binds: list[tuple[str, str]] = []
+
+        self.direct_bind("<FocusOut>", self.focus_out_event)
+        self.direct_bind("<FocusIn>", self.focus_in_event)
 
         # Bind non-keyboard triggered events, as IDLE only binds
         # keyboard events automatically.
@@ -309,21 +314,25 @@ class idlereload:  # noqa: N801
             if not callable(bind_func):
                 debug(f"{bind_func_name} should be callable")
                 continue
-            self.text.bind(f"<<{bind_name}>>", bind_func)
+            self.text.bind(f"<<{bind_name}>>", bind_func, "+")
 
-    # def get_async(
-    #     self,
-    #     name: str,
-    # ) -> Callable[[Event[Any]], str]:
-    #     """Get sync callable to run async function."""
-    #     async_function = getattr(self, name)
-    #
-    #     @wraps(async_function)
-    #     def call_trio(event: Event[Any]) -> str:
-    #         self.triorun(partial(async_function, event))
-    #         return "break"
-    #
-    #     return call_trio
+    def direct_bind(
+        self,
+        event_name: str,
+        callback: Callable[[Event[Misc]], None],
+    ) -> None:
+        """Register a non-virtual event."""
+        self.direct_binds.append(
+            (
+                event_name,
+                self.text.bind(event_name, callback, add=True),
+            ),
+        )
+
+    def unregister_direct_binds(self) -> None:
+        """Unbind non-virtual events."""
+        for event_name, id_ in self.direct_binds:
+            self.text.unbind(event_name, id_)
 
     def __repr__(self) -> str:
         """Return representation of self."""
@@ -404,42 +413,17 @@ class idlereload:  # noqa: N801
         # Get file we are checking
         raw_filename: str | None = self.files.filename
         if raw_filename is None:
-            debug("Raw filename is None")
+            debug("Raw filename is None", False)
             return "break", None
         file: str = os.path.abspath(raw_filename)
 
         # Everything worked
         return None, file
 
-    @log_exceptions
-    def reload_file_event(self, event: Event[Misc]) -> str:
-        """Reload currently open file."""
-        init_return, filename = self.initial()
-
-        if init_return is not None:
-            return init_return
-        if filename is None:
-            debug("Filename is None")
-            self.text.bell()
-            return "break"
-        if not self.files.get_saved():
-            if self.ask_save_dialog():
-                # clear to save
-                self.files.save(None)
-            else:
-                return "break"
-
-        # Otherwise, read from disk
-        # Ensure file exists
-        if not os.path.exists(filename) or os.path.isdir(filename):
-            debug(f"Filename {filename!r} does not exist or is a directory.")
-            self.text.bell()
-            return "break"
-
+    def reload_file_contents(self, filename: str) -> None:
+        """Reload file content from disk."""
         # Remember where we started
         start_line_no: int = self.editwin.getlineno()
-
-        self.files.set_saved(False)
 
         # # Reload file contents
         # if self.files.loadfile(filename):
@@ -511,7 +495,37 @@ class idlereload:  # noqa: N801
                 else:
                     raise ValueError(f"Unknown tag {tag!r}")
             self.files.set_saved(True)
+        self.update_mtime()
         self.editwin.gotoline(start_line_no + start_offset)
+
+    @log_exceptions
+    def reload_file_event(self, event: Event[Misc]) -> str:
+        """Reload currently open file."""
+        init_return, filename = self.initial()
+
+        if init_return is not None:
+            return init_return
+        if filename is None:
+            debug("Filename is None", False)
+            self.text.bell()
+            return "break"
+        if not self.files.get_saved():
+            if self.ask_save_dialog():
+                # clear to save
+                self.files.save(None)
+            else:
+                return "break"
+
+        # Otherwise, read from disk
+        # Ensure file exists
+        if not os.path.exists(filename) or os.path.isdir(filename):
+            debug(f"Filename {filename!r} does not exist or is a directory.")
+            self.text.bell()
+            return "break"
+
+        self.files.set_saved(False)
+
+        self.reload_file_contents(filename)
 
         self.text.bell()
         return "break"
@@ -601,6 +615,53 @@ class idlereload:  # noqa: N801
 
         self.text.bell()
         return "break"
+
+    def update_mtime(self) -> float | None:
+        """Update and return last_mtime."""
+        filename = self.editwin.io.filename
+        if filename is None:
+            return None
+        mtime = get_mtime(filename)
+        if mtime is None:
+            return None
+        self.last_mtime = mtime
+        return self.last_mtime
+
+    @log_exceptions
+    def focus_out_event(self, event: Event[Misc]) -> None:
+        """Tkinter FocusIn event handler."""
+        filename = self.editwin.io.filename
+        if filename is None:
+            return
+
+        if self.files.get_saved():
+            self.update_mtime()
+
+    @log_exceptions
+    def focus_in_event(self, event: Event[Misc]) -> None:
+        """Tkinter FocusIn event handler."""
+        filename = self.editwin.io.filename
+        if filename is None:
+            return
+        # mtime is still set from startup
+        if self.last_mtime == -1.0:
+            self.update_mtime()
+            return
+        current_mtime = get_mtime(filename)
+        if current_mtime is None:
+            return
+        if current_mtime != self.last_mtime and askyesno(
+            "Reload",
+            "This script has been modified by another program.\nDo you want to reload from disk contents?",
+            parent=self.editwin.text,
+        ):
+            self.reload_file_contents(filename)
+        # Always update time or will loop forever
+        self.update_mtime()
+
+    def close(self) -> None:
+        """Handle window closing."""
+        self.unregister_direct_binds()
 
 
 idlereload.reload()

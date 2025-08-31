@@ -31,12 +31,6 @@ repos:
     rev: v0.9.6
     hooks:
       - id: badgie
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
-    hooks:
-      - id: codespell
-        additional_dependencies:
-          - tomli
   - repo: https://github.com/adhtruong/mirrors-typos
     rev: v1.34.0
     hooks:
