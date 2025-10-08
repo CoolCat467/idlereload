@@ -40,7 +40,7 @@ from tkinter.messagebox import askyesno
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    from collections.abc import Callable, Generator, Mapping
     from idlelib.iomenu import IOBinding
     from idlelib.pyshell import PyShellEditorWindow
     from idlelib.undo import UndoDelegator
@@ -158,7 +158,7 @@ def ensure_section_exists(section: str) -> bool:
 
 def ensure_values_exist_in_section(
     section: str,
-    values: dict[str, str | None],
+    values: Mapping[str, str | None],
 ) -> bool:
     """For each key in values, make sure key exists. Return if edited.
 
