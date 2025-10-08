@@ -241,6 +241,21 @@ def log_exceptions(function: Callable[PS, T]) -> Callable[PS, T]:
     return wrapper
 
 
+def log_exceptions_catch(function: Callable[PS, T]) -> Callable[PS, T | None]:
+    """Log and catch any exceptions raised."""
+
+    @wraps(function)
+    def wrapper(*args: PS.args, **kwargs: PS.kwargs) -> T | None:
+        """Catch Exceptions, log them to log file. Return None on error."""
+        try:
+            return function(*args, **kwargs)
+        except Exception as exc:
+            extension_log_exception(exc)
+            return None
+
+    return wrapper
+
+
 def get_mtime(filename: str) -> float | None:
     """Return mtime or None on OSError."""
     try:
@@ -298,8 +313,8 @@ class idlereload:  # noqa: N801
         self.last_mtime: float = -1.0
         self.direct_binds: list[tuple[str, str]] = []
 
-        self.direct_bind("<FocusOut>", self.focus_out_event)
-        self.direct_bind("<FocusIn>", self.focus_in_event)
+        # self.direct_bind("<FocusOut>", self.focus_out_event)
+        # self.direct_bind("<FocusIn>", self.focus_in_event)
 
         # Bind non-keyboard triggered events, as IDLE only binds
         # keyboard events automatically.
@@ -498,7 +513,7 @@ class idlereload:  # noqa: N801
         self.update_mtime()
         self.editwin.gotoline(start_line_no + start_offset)
 
-    @log_exceptions
+    @log_exceptions_catch
     def reload_file_event(self, event: Event[Misc]) -> str:
         """Reload currently open file."""
         init_return, filename = self.initial()
@@ -601,7 +616,7 @@ class idlereload:  # noqa: N801
 
         self.editwin.extensions.clear()
 
-    @log_exceptions
+    @log_exceptions_catch
     def idlereload_reload_extensions_event(self, event: Event[Misc]) -> str:
         """Reload extensions."""
         print(f"[{__title__}]: Reloading extensions")
@@ -627,7 +642,7 @@ class idlereload:  # noqa: N801
         self.last_mtime = mtime
         return self.last_mtime
 
-    @log_exceptions
+    @log_exceptions_catch
     def focus_out_event(self, event: Event[Misc]) -> None:
         """Tkinter FocusIn event handler."""
         filename = self.editwin.io.filename
@@ -637,7 +652,7 @@ class idlereload:  # noqa: N801
         if self.files.get_saved():
             self.update_mtime()
 
-    @log_exceptions
+    @log_exceptions_catch
     def focus_in_event(self, event: Event[Misc]) -> None:
         """Tkinter FocusIn event handler."""
         filename = self.editwin.io.filename
@@ -650,15 +665,18 @@ class idlereload:  # noqa: N801
         current_mtime = get_mtime(filename)
         if current_mtime is None:
             return
-        if current_mtime != self.last_mtime and askyesno(
-            "Reload",
-            "This script has been modified by another program.\nDo you want to reload from disk contents?",
-            parent=self.editwin.text,
-        ):
-            self.reload_file_contents(filename)
+        if current_mtime != self.last_mtime:
+            print(f"{current_mtime   = }\n{self.last_mtime = }")
+            if askyesno(
+                "Reload",
+                "This script has been modified by another program.\nDo you want to reload from disk contents?",
+                parent=self.editwin.text,
+            ):
+                self.reload_file_contents(filename)
         # Always update time or will loop forever
         self.update_mtime()
 
+    @log_exceptions_catch
     def close(self) -> None:
         """Handle window closing."""
         self.unregister_direct_binds()
