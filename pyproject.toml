@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development",
     "Topic :: Text Editors :: Integrated Development Environments (IDE)",
@@ -42,14 +43,14 @@ tests = [
     "pytest>=5.0",
     "pytest-cov>=6.0.0",
     "coverage>=7.2.5",
-    "uv>=0.5.21",
 ]
 tools = [
+    "uv>=0.5.21",
     "ruff>=0.9.2",
     "codespell>=2.3.0",
     "pre-commit>=4.2.0",
     "attrs>=25.3.0",
-    "mypy>=1.17.0",
+    "mypy>=1.19.1",
     "types-idlelib>=0.0.0",
 ]
 
@@ -65,7 +66,10 @@ idlereload = "idlereload:check_installed"
 idlereload = ["py.typed"]
 
 [tool.mypy]
-files = ["src/idlereload/", "tests"]
+files = [
+    "src/idlereload/",
+    "tests",
+]
 enable_error_code = [
     "truthy-bool",
     "mutable-override",
@@ -162,7 +166,7 @@ extend-ignore = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--cov-report=xml --cov-report=term-missing --cov=idlereload"
+addopts = "--cov-report=term-missing --cov=idlereload"
 testpaths = [
     "tests",
 ]
